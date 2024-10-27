@@ -3,6 +3,7 @@
 #include <random>
 #include <ctime>
 #include <algorithm> 
+using namespace std;
 
 // Assuming a large prime number, for example, a 32-bit prime
 const long long PRIME = 1000000007;
@@ -16,15 +17,15 @@ struct SecretPair {
 
 // generate random number between min and max 
 int genRandom(int min, int max) {
-    static std::mt19937 rng((unsigned) std::time(nullptr)); // static to use seeding only once
-    std::uniform_int_distribution<std::mt19937::result_type> dist(min, max);
+    static mt19937 rng((unsigned) time(nullptr)); // static to use seeding only once
+    uniform_int_distribution<mt19937::result_type> dist(min, max);
     return dist(rng);
 }
 
 // generate polynomial coefficients
-std::vector<int> genCoefficients(int k, int secret) {
+vector<int> genCoefficients(int k, int secret) {
     // A vector coefficients of size k: store the polynomial coefficients (int)
-    std::vector<int> coefficients(k);
+    vector<int> coefficients(k);
     // The constant term is the secret
     coefficients[0] = secret; 
     // Function = secret + a_1 * x + a_2 * x^2 + ...+ a_(k-1) * x^(k-1)
@@ -36,8 +37,8 @@ std::vector<int> genCoefficients(int k, int secret) {
 }
 
 // gen secret pairs (shares)
-std::vector<SecretPair> genSecretPairs(int n, const std::vector<int>& coefficients) {
-    std::vector<SecretPair> shares;
+vector<SecretPair> genSecretPairs(int n, const vector<int>& coefficients) {
+    vector<SecretPair> shares;
     shares.reserve(n); // preallocates memory 
     int k = coefficients.size();
 
@@ -53,7 +54,7 @@ std::vector<SecretPair> genSecretPairs(int n, const std::vector<int>& coefficien
                 term = term * i % PRIME;
             }
             // (the coefficient for the x^j term) 
-            // term = x^j (which we calculated above)
+            // term = x^j (which was calculated above)
             y = (y + coefficients[j] * term) % PRIME;
         }
         // create (x,y) SecretPair in shares
@@ -98,7 +99,7 @@ long long modInverse(long long a, long long m) {
 }
 
 // reconstruct the secret using Lagrange interpolation
-long long reconstructSecret(const std::vector<SecretPair>& shares) {
+long long reconstructSecret(const vector<SecretPair>& shares) {
     long long secret = 0;
     int k = shares.size();
     for (int i = 0; i < k; i++) {
@@ -130,32 +131,16 @@ long long reconstructSecret(const std::vector<SecretPair>& shares) {
 }
 
 // Function to select only 'k' shares from the total 'n' shares and recover the secret
-long long thresholdRecover(int k, const std::vector<SecretPair>& shares) {
+long long thresholdRecover(int k, const vector<SecretPair>& shares) {
     // Create a copy of the original shares so we can shuffle them
-    std::vector<SecretPair> selectedShares = shares;
+    vector<SecretPair> selectedShares = shares;
 
     // shuffle the shares
-    std::shuffle(selectedShares.begin(), selectedShares.end(), std::mt19937(std::random_device()()));
+    shuffle(selectedShares.begin(), selectedShares.end(), mt19937(random_device()()));
 
     // Select the first 'k' shares
-    std::vector<SecretPair> thresholdShares(selectedShares.begin(), selectedShares.begin() + k);
+    vector<SecretPair> thresholdShares(selectedShares.begin(), selectedShares.begin() + k);
 
     // Recover the secret using only the threshold number of shares
     return reconstructSecret(thresholdShares);
-}
-
-int main() {
-    int n = 5; // Number of shares
-    int k = 3; // Threshold: min number of shares needed to reconstruct the secret
-    int secret = 123456789; 
-
-    auto coefficients = genCoefficients(k, secret);
-    auto shares = genSecretPairs(n, coefficients);
-    // Recover the secret using only 'k' shares
-    long long recovered_secret = thresholdRecover(k, shares);
-
-    std::cout << "Original Secret: " << secret << std::endl;
-    std::cout << "Recovered Secret using " << k << " shares: " << recovered_secret << std::endl;
-
-    return 0;
 }
