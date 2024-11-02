@@ -1,0 +1,15 @@
+{
+  "name": "ECE1724",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+      ]
+    }
+  },
+  "remoteUser": "ubuntu"
+}
