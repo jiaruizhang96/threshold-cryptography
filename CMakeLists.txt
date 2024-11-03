@@ -16,4 +16,10 @@ CPMAddPackage("gh:nlohmann/json@3.11.3")
 CPMAddPackage("gh:yhirose/cpp-httplib@0.18.1")
 CPMAddPackage("gh:martinus/nanobench@4.3.11")
 
-add_subdirectory(source)
+# Allow Catch2 tests to be registered with CTest.
+list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+include(CTest)
+include(Catch)
+
+add_subdirectory(server)
+add_subdirectory(tests)
