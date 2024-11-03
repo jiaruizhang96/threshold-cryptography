@@ -14,5 +14,6 @@ CPMAddPackage("gh:catchorg/Catch2@3.7.1")
 CPMAddPackage("gh:fmtlib/fmt#11.0.2")
 CPMAddPackage("gh:nlohmann/json@3.11.3")
 CPMAddPackage("gh:yhirose/cpp-httplib@0.18.1")
+CPMAddPackage("gh:martinus/nanobench@4.3.11")
 
 add_subdirectory(source)
