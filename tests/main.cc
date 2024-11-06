@@ -9,7 +9,7 @@ TEST_CASE("PUT and GET key-value pair", "[put_get]") {
 
     // Define key-value pair for testing
     std::string key = "test-key";
-    std::string value = "Hello World!";
+    std::string value = "123456789";
 
     SECTION("PUT value") {
         // PUT request to store the key-value pair
