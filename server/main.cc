@@ -8,19 +8,32 @@
 
 using namespace httplib;
 using Share = SecretPair; 
+std::vector<std::pair<std::string, int>> etcd_servers;
 
-// List of etcd server addresses (host and port).
-std::vector<std::pair<std::string, int>> etcd_servers = {
-    {"localhost", 2379},
-    {"localhost", 3379},
-    {"localhost", 4379}
-};
+// Parses etcd server addresses from environment variable and updates the global variable
+void parse_etcd_servers(const std::string& env_var) {
+    std::stringstream ss(env_var);
+    std::string item;
+    while (getline(ss, item, ',')) {
+        auto colon_pos = item.find(':');
+        if (colon_pos != std::string::npos) {
+            std::string host = item.substr(0, colon_pos);
+            int port = std::stoi(item.substr(colon_pos + 1));
+            etcd_servers.emplace_back(host, port);  // Add directly to the global variable
+        } 
+    }
+}
 
 // This function gives a random etcd server.
 std::pair<std::string, int> get_random_etcd_server() {
+    if (etcd_servers.empty()) {
+        std::cout << "Error: No etcd servers are available." << std::endl;
+        return {"", -1};  // Return an invalid server if none are available
+    }
     int index = rand() % etcd_servers.size();
     return etcd_servers[index];
 }
+
 
 // Helper function for PUT requests
 bool put_helper(const std::string& key, const std::string& value) {
@@ -31,7 +44,6 @@ bool put_helper(const std::string& key, const std::string& value) {
     auto etcd_res = etcd_server.Put(put_path.c_str(), "", "application/x-www-form-urlencoded");
 
     if (etcd_res && (etcd_res->status == 201 || etcd_res->status == 200)) {
-        std::cout << "Successfully PUT key: " << key << " with status: " << etcd_res->status << "\n";
         return true;
     }
     if (etcd_res) {
@@ -70,11 +82,18 @@ std::string get_helper(const std::string& key) {
 }
 
 int main() {
-    srand(static_cast<unsigned>(time(0))); // Seed for random selection
+    // Reading environment variables
+    char* env_etcd_servers = std::getenv("ETCD_SERVERS");
+    char* env_n = std::getenv("N");
+    char* env_k = std::getenv("K");
+    std::string etcd_servers_str = env_etcd_servers;
+    const int n = std::atoi(env_n);
+    const int k = std::atoi(env_k);
+    
+    // Parse etcd server addresses
+    parse_etcd_servers(etcd_servers_str);
 
-    // Initialize n and k 
-    const int n = 3;
-    const int k = 2;
+    srand(static_cast<unsigned>(time(0))); // Seed for random selection
 
     Server server;
 
@@ -85,23 +104,20 @@ int main() {
         // Convert the input string to an integer secret
         int secret = std::stoi(value);
         bool all_puts_successful = true;
-
         // 1. Generate k coefficients and shares using Shamir's Secret Sharing
         auto coefficients = genCoefficients(k, secret);
         auto shares = genSecretPairs(n, coefficients);
-
         // 2. Store each share in etcd with a unique identifier for the key
         for (int i = 0; i < shares.size(); i++) {
             // Create a unique identifier share_key
             std::string share_key = key + "_share_" + std::to_string(shares[i].x); 
             // Convert the secret share to string
             std::string share_value = std::to_string(shares[i].y);
-
             // Put the key in etcd
             if (!put_helper(share_key, share_value)) {
                 res.status = 500;
                 res.set_content("Failed to PUT key: " + share_key + " in etcd", "text/plain");
-                all_puts_successful = false;
+                all_puts_successful = false;        
                 break;
             } 
         }
@@ -114,12 +130,10 @@ int main() {
 
     server.Get("/get", [&, k](const Request& req, Response& res) {
         std::string key = req.get_param_value("key");
-        
+        std::cout << " current k value: " << k << "\n";
         // 1. Retrieve at least k shares from etcd
         std::vector<Share> shares_to_recover;
         for (int i = 1; i <= k; i++) {
-            std::cout << "Starting iteration with i = " << i << ", k = " << k << "\n";
-
             // Unique key for each share
             std::string share_key = key + "_share_" + std::to_string(i); 
             std::string share_value_str = get_helper(share_key);
@@ -128,7 +142,6 @@ int main() {
             if (!share_value_str.empty()) {
                 int y_value = std::stoi(share_value_str);
                 shares_to_recover.emplace_back(i, y_value);
-                std::cout << "Retrieved and stored share for i = " << i << " with value: " << y_value << "\n";
             } else {
                 std::cout << "Share value string is empty for i = " << i << "\n";
             }
@@ -140,6 +153,8 @@ int main() {
         }
         // 2. Recover the secret using k shares
         long long recovered_secret = thresholdRecover(k, shares_to_recover); // Reconstruct secret
+        std::cout << "line 156 main.cc server directroy recovered secret:" << recovered_secret << "\n";
+            
         res.status = 200;
         res.set_content("Recovered Secret: " + std::to_string(recovered_secret), "text/plain");
     });

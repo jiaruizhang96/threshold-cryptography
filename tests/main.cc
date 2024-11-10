@@ -34,19 +34,45 @@ TEST_CASE("Benchmark PUT and GET key-value pair", "[put_get_benchmark]") {
             // GET request to retrieve the stored value
             std::string get_path = "/get?key=" + key;
             auto res = client.Get(get_path.c_str());
-
             REQUIRE(res != nullptr);
             REQUIRE(res->status == 200); // Check for 200 OK status
+            std::cout << "line 40 main.cc tests directory recovered secret:" <<res->body << "\n";
             REQUIRE(res->body.find(value) != std::string::npos); // Check if response contains the value
         };
     }
 }
 
+TEST_CASE("Verify key splitting and reconstruction correctness", "[key_split_reconstruct]") {
+    // Get the number of shares and threshold from environment variables
+    const int n = 9;  // number of shares
+    const int k = 5;  // threshold to reconstruct
+    int secret = 123456789;  // Original secret to split and reconstruct
 
+    SECTION("Key splitting and reconstruction correctness test") {
+        // Generate coefficients and shares using Shamir's Secret Sharing
+        auto coefficients = genCoefficients(k, secret);
+        auto shares = genSecretPairs(n, coefficients);
 
+        // Ensure the shares have been generated correctly
+        REQUIRE(shares.size() == n);
+
+        // Use the first k shares for reconstruction
+        std::vector<SecretPair> shares_to_recover(shares.begin(), shares.begin() + k);
+
+        // Reconstruct the secret
+        long long reconstructed_secret = thresholdRecover(k, shares_to_recover);
+
+        // Verify that the reconstructed secret matches the original
+        REQUIRE(reconstructed_secret == secret);
+    }
+}
+
+/*
 TEST_CASE("Benchmark key splitting and reconstruction", "[key_split_reconstruct]") {
-    const int n = 5;  // number of shares
-    const int k = 3;  // threshold to reconstruct
+    //const int n = 3;  // number of shares
+    //const int k = 2;  // threshold to reconstruct
+    const int n = std::atoi(getenv("N"));  // number of shares
+    const int k = std::atoi(getenv("K"));  // threshold to reconstruct
     int secret = 123456789;  
     SECTION("Benchmark key splitting") {
         BENCHMARK("Key splitting") {
@@ -69,4 +95,4 @@ TEST_CASE("Benchmark key splitting and reconstruction", "[key_split_reconstruct]
             return recovered_secret;  
         };
     }
-}
+}*/
