@@ -50,7 +50,7 @@ initial_cluster() {
 
 
 # Test scenarios
-declare -a tests=(7)
+declare -a tests=(3)
 
 # Main loop through each test scenario
 for n in "${tests[@]}"; do

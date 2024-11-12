@@ -153,7 +153,7 @@ int main() {
         }
         // 2. Recover the secret using k shares
         long long recovered_secret = thresholdRecover(k, shares_to_recover); // Reconstruct secret
-        std::cout << "line 156 main.cc server directroy recovered secret:" << recovered_secret << "\n";
+        //std::cout << "line 156 main.cc server directroy recovered secret:" << recovered_secret << "\n";
             
         res.status = 200;
         res.set_content("Recovered Secret: " + std::to_string(recovered_secret), "text/plain");

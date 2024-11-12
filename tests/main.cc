@@ -36,7 +36,7 @@ TEST_CASE("Benchmark PUT and GET key-value pair", "[put_get_benchmark]") {
             auto res = client.Get(get_path.c_str());
             REQUIRE(res != nullptr);
             REQUIRE(res->status == 200); // Check for 200 OK status
-            std::cout << "line 40 main.cc tests directory recovered secret:" <<res->body << "\n";
+            //std::cout << "line 40 main.cc tests directory recovered secret:" <<res->body << "\n";
             REQUIRE(res->body.find(value) != std::string::npos); // Check if response contains the value
         };
     }
@@ -67,7 +67,7 @@ TEST_CASE("Verify key splitting and reconstruction correctness", "[key_split_rec
     }
 }
 
-/*
+
 TEST_CASE("Benchmark key splitting and reconstruction", "[key_split_reconstruct]") {
     //const int n = 3;  // number of shares
     //const int k = 2;  // threshold to reconstruct
@@ -95,4 +95,4 @@ TEST_CASE("Benchmark key splitting and reconstruction", "[key_split_reconstruct]
             return recovered_secret;  
         };
     }
-}*/
+}
