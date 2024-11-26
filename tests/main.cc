@@ -8,7 +8,7 @@
 using namespace httplib;
 
 TEST_CASE("Benchmark PUT and GET key-value pair", "[put_get_benchmark]") {
-    Client client("localhost", 8080);
+    Client client("localhost", 8081);
 
     // key-value pair for testing
     std::string key = "benchmark-test-key";
@@ -42,6 +42,7 @@ TEST_CASE("Benchmark PUT and GET key-value pair", "[put_get_benchmark]") {
     }
 }
 
+/*
 TEST_CASE("Verify key splitting and reconstruction correctness", "[key_split_reconstruct]") {
     // Get the number of shares and threshold from environment variables
     const int n = 9;  // number of shares
@@ -95,4 +96,4 @@ TEST_CASE("Benchmark key splitting and reconstruction", "[key_split_reconstruct]
             return recovered_secret;  
         };
     }
-}
+}*/

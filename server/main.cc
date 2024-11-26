@@ -10,30 +10,11 @@ using namespace httplib;
 using Share = SecretPair; 
 std::vector<std::pair<std::string, int>> etcd_servers;
 
-// Parses etcd server addresses from environment variable and updates the global variable
-void parse_etcd_servers(const std::string& env_var) {
-    std::stringstream ss(env_var);
-    std::string item;
-    while (getline(ss, item, ',')) {
-        auto colon_pos = item.find(':');
-        if (colon_pos != std::string::npos) {
-            std::string host = item.substr(0, colon_pos);
-            int port = std::stoi(item.substr(colon_pos + 1));
-            etcd_servers.emplace_back(host, port);  // Add directly to the global variable
-        } 
-    }
-}
 
 // This function gives a random etcd server.
 std::pair<std::string, int> get_random_etcd_server() {
-    if (etcd_servers.empty()) {
-        std::cout << "Error: No etcd servers are available." << std::endl;
-        return {"", -1};  // Return an invalid server if none are available
-    }
-    int index = rand() % etcd_servers.size();
-    return etcd_servers[index];
+    return {"localhost", 8080};  // Always route requests through NGINX
 }
-
 
 // Helper function for PUT requests
 bool put_helper(const std::string& key, const std::string& value) {
@@ -41,6 +22,8 @@ bool put_helper(const std::string& key, const std::string& value) {
     Client etcd_server(host.c_str(), port);
 
     std::string put_path = "/v2/keys/" + key + "?value=" + value;
+    std::cout << "PUT Path: " << put_path << "\n";
+
     auto etcd_res = etcd_server.Put(put_path.c_str(), "", "application/x-www-form-urlencoded");
 
     if (etcd_res && (etcd_res->status == 201 || etcd_res->status == 200)) {
@@ -61,6 +44,7 @@ std::string get_helper(const std::string& key) {
     Client etcd_server(host.c_str(), port);
 
     std::string get_path = "/v2/keys/" + key;
+    std::cout << "GET Path: " << get_path << "\n";
     auto etcd_res = etcd_server.Get(get_path.c_str());
 
     if (etcd_res && etcd_res->status == 200) {
@@ -83,18 +67,11 @@ std::string get_helper(const std::string& key) {
 
 int main() {
     // Reading environment variables
-    char* env_etcd_servers = std::getenv("ETCD_SERVERS");
     char* env_n = std::getenv("N");
     char* env_k = std::getenv("K");
-    std::string etcd_servers_str = env_etcd_servers;
     const int n = std::atoi(env_n);
     const int k = std::atoi(env_k);
     
-    // Parse etcd server addresses
-    parse_etcd_servers(etcd_servers_str);
-
-    srand(static_cast<unsigned>(time(0))); // Seed for random selection
-
     Server server;
 
     server.Post("/put", [&, n, k](const Request& req, Response& res) {
@@ -159,8 +136,8 @@ int main() {
         res.set_content("Recovered Secret: " + std::to_string(recovered_secret), "text/plain");
     });
 
-    std::cout << "Server is running on http://0.0.0.0:8080" << "\n";
-    server.listen("0.0.0.0", 8080);
+    std::cout << "Server is running on http://0.0.0.0:8081" << "\n";
+    server.listen("0.0.0.0", 8081);
 
     return 0;
 }
