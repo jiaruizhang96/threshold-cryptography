@@ -1,2 +1,3 @@
-build
-third-party
+.pytest_cache
+.venv
+__pycache__

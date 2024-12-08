@@ -1,0 +1,7 @@
+deepdiff
+fastapi
+httpx
+pycryptodome
+pynacl
+pytest
+uvicorn
