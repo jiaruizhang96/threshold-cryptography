@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.27)
-project(ECE1724 CXX)
+project(ECE1724)
 
 # Generate compile_commands.json for IntelliSense to work.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Cache third-party source code for reuse across CMake builds.
-set(CPM_SOURCE_CACHE ${PROJECT_SOURCE_DIR}/third-party)
+set(CPM_SOURCE_CACHE "${PROJECT_SOURCE_DIR}/third-party")
 
 # CMake package manager for downloading and configuring dependencies.
 include(cmake/CPM.cmake)
@@ -17,7 +17,7 @@ CPMAddPackage("gh:yhirose/cpp-httplib@0.18.1")
 CPMAddPackage("gh:martinus/nanobench@4.3.11")
 
 # Allow Catch2 tests to be registered with CTest.
-list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+list(APPEND CMAKE_MODULE_PATH "${Catch2_SOURCE_DIR}/extras")
 include(CTest)
 include(Catch)
 
