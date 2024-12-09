@@ -4,48 +4,49 @@ import nacl.secret
 from Crypto.PublicKey import ECC
 from math import prod
 from random import randint
-from typing import List, Tuple
+from typing import Dict, List
 
 class Curve():
     def __init__(self, curve: str):
         self._curve = ECC._curves[curve]
 
     @property
-    def q(self):
+    def order(self):
         return int(self._curve.order)
 
     @property
-    def G(self):
+    def generator(self):
         return self._curve.G
 
 class Polynomial():
     @staticmethod
-    def random(S: int, t: int, q: int):
-        return Polynomial([S] + [randint(1, q) for i in range(t - 1)], q)
+    def Shamir(secret: int, threshold: int, order: int):
+        S = secret
+        t = threshold
+        q = order
+        return Polynomial([S] + [randint(1, q) for _ in range(t - 1)], q)
 
-    def __init__(self, a: List[int], q: int):
-        self.a = a
-        self.q = q
+    def __init__(self, coefficients: List[int], order: int):
+        self._coefficients = coefficients
+        self._order = order
 
     def __call__(self, x: int):
-        a = self.a
-        q = self.q
+        a = self._coefficients
+        q = self._order
         t = len(a)
         return sum(a[i] * pow(x, i, q) for i in range(t)) % q
 
-def interpolate(shares: List[Tuple[int, int]], q: int):
-    t = len(shares)
+def interpolate_int(shares: Dict[int, int], order: int):
+    q = order
+    ℓ = lambda xᵢ : prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
 
-    def x(i: int):
-        return shares[i][0]
+    return sum(yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()) % q
 
-    def y(i: int):
-        return shares[i][1]
+def interpolate_ecc(shares: Dict[int, ECC.EccPoint], order: int, start: ECC.EccPoint):
+    q = order
+    ℓ = lambda xᵢ : prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
 
-    def ℓ(i: int):
-        return prod(x(j) * pow(x(j) - x(i), -1, q) for j in range(t) if j != i)
-
-    return sum(y(i) * ℓ(i) for i in range(t)) % q
+    return sum((yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()), start)
 
 def derive_key(S: ECC.EccPoint):
     ikm = S.x.to_bytes(S.size_in_bytes(), byteorder='big')
