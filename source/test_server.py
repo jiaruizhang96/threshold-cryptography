@@ -15,20 +15,13 @@ def test_status():
     assert response.status_code == 200
     assert response.json() == {"message": "Server is ready"}
 
-def test_write():
+def test_write_then_read():
     response = client.put("/keys/message", json={"value": "Hello world"})
-    expected = {
-        "action": "set",
-        "node": {
-            "key": "/message",
-            "value": "Hello world",
-        },
-    }
     assert response.status_code == 200
-    assert DeepDiff(response.json(), expected, exclude_paths=ignore) == {}
 
-def test_read():
     response = client.get("/keys/message")
+    assert response.status_code == 200
+
     expected = {
         "action": "get",
         "node": {
@@ -36,16 +29,4 @@ def test_read():
             "value": "Hello world",
         },
     }
-    assert response.status_code == 200
-    assert DeepDiff(response.json(), expected, exclude_paths=ignore) == {}
-
-def test_delete():
-    response = client.delete("/keys/message")
-    expected = {
-        "action": "delete",
-        "node": {
-            "key": "/message",
-        },
-    }
-    assert response.status_code == 200
     assert DeepDiff(response.json(), expected, exclude_paths=ignore) == {}

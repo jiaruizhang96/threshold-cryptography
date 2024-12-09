@@ -1,3 +1,5 @@
+import base64
+import json
 import nacl.hash
 import nacl.secret
 
@@ -5,6 +7,51 @@ from Crypto.PublicKey import ECC
 from math import prod
 from random import randint
 from typing import Dict, List
+
+class Point():
+    def __init__(self, point: ECC.EccPoint):
+        self._point = point
+
+    @property
+    def x(self):
+        return int(self._point.x)
+
+    @property
+    def y(self):
+        return int(self._point.y)
+
+    @property
+    def curve(self):
+        return self._point.curve
+
+    def point_at_infinity(self):
+        return Point(self._point.point_at_infinity())
+
+    def __add__(self, point):
+        return Point(self._point + point._point)
+
+    def __mul__(self, scalar: int):
+        return Point(self._point * scalar)
+
+    def __rmul__(self, scalar: int):
+        return Point(self._point * scalar)
+
+    def to_dict(self):
+        return {"x": self.x, "y": self.y, "curve": self.curve}
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    def to_bytes(self):
+        return self.to_json().encode("utf-8")
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(ECC.EccPoint(data["x"], data["y"], data["curve"]))
+
+    @classmethod
+    def from_json(cls, data):
+        return cls.from_dict(json.loads(data))
 
 class Curve():
     def __init__(self, curve: str):
@@ -16,7 +63,31 @@ class Curve():
 
     @property
     def generator(self):
-        return self._curve.G
+        return Point(self._curve.G)
+
+class EncryptedValue():
+    def __init__(self, public_key: Point, ciphertext: bytes):
+        self.public_key = public_key
+        self.ciphertext = ciphertext
+
+    def to_dict(self):
+        R = self.public_key
+        C = self.ciphertext
+        return {"publicKey": R.to_dict(), "ciphertext": base64.urlsafe_b64encode(C).decode("utf-8")}
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    def to_bytes(self):
+        return self.to_json().encode("utf-8")
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]):
+        return cls(Point.from_dict(data["publicKey"]), base64.urlsafe_b64decode(data["ciphertext"].encode("utf-8")))
+
+    @classmethod
+    def from_json(cls, data):
+        return cls.from_dict(json.loads(data))
 
 class Polynomial():
     @staticmethod
@@ -42,18 +113,17 @@ def interpolate_int(shares: Dict[int, int], order: int):
 
     return sum(yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()) % q
 
-def interpolate_ecc(shares: Dict[int, ECC.EccPoint], order: int, start: ECC.EccPoint):
+def interpolate_ecc(shares: Dict[int, Point], order: int, start: Point):
     q = order
     ℓ = lambda xᵢ : prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
 
     return sum((yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()), start)
 
-def derive_key(S: ECC.EccPoint):
-    ikm = S.x.to_bytes(S.size_in_bytes(), byteorder='big')
-    return nacl.hash.blake2b(ikm, digest_size=nacl.secret.SecretBox.KEY_SIZE, encoder=nacl.encoding.RawEncoder)
+def derive_key(S: Point):
+    return nacl.hash.blake2b(S.to_bytes(), digest_size=nacl.secret.SecretBox.KEY_SIZE, encoder=nacl.encoding.RawEncoder)
 
-def encrypt(M: bytes, K: bytes):
-    return nacl.secret.SecretBox(K).encrypt(M)
+def encrypt(M: str, K: bytes):
+    return bytes(nacl.secret.SecretBox(K).encrypt(M.encode()))
 
 def decrypt(C: bytes, K: bytes):
-    return nacl.secret.SecretBox(K).decrypt(C)
+    return nacl.secret.SecretBox(K).decrypt(C).decode()

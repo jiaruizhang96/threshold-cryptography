@@ -32,7 +32,7 @@ def test_ecies():
     Q = k * G
 
     # Message from Alice.
-    M = b"Hello world"
+    M = "Hello world"
 
     # Alice's ephemeral key pair.
     d = randint(1, q)
@@ -49,7 +49,7 @@ def test_ecies():
     M = decrypt(C, K)
 
     # Check result is as expected.
-    assert M.decode('utf-8') == "Hello world"
+    assert M == "Hello world"
 
 def test_shamir_with_ecies():
     # Curve parameters.
@@ -69,7 +69,7 @@ def test_shamir_with_ecies():
     k = {i: f(i) for i in range(1, n + 1)}
 
     # Message from Alice.
-    M = b"Hello world"
+    M = "Hello world"
 
     # Alice's ephemeral key pair.
     d = randint(1, q)
@@ -89,4 +89,4 @@ def test_shamir_with_ecies():
     M = decrypt(C, K)
 
     # Check result is as expected.
-    assert M.decode('utf-8') == "Hello world"
+    assert M == "Hello world"
