@@ -1,19 +1,17 @@
-from deepdiff import DeepDiff
-from fastapi.testclient import TestClient
-from server import app
+import httpx
 
-client = TestClient(app)
+from deepdiff import DeepDiff
 
 def test_status():
-    response = client.get("/status")
+    response = httpx.get("http://127.0.0.1:8001/status")
     assert response.status_code == 200
-    assert response.json() == {"message": "Server is ready"}
+    assert response.json() == {"message": "Proxy server is ready"}
 
 def test_write_then_read():
-    response = client.put("/keys/message", json={"value": "Hello world"})
+    response = httpx.put("http://127.0.0.1:8001/keys/message", json={"value": "Hello world"})
     assert response.status_code == 200
 
-    response = client.get("/keys/message")
+    response = httpx.get("http://127.0.0.1:8001/keys/message")
     assert response.status_code == 200
 
     expected = {

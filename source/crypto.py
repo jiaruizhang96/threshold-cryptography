@@ -1,11 +1,11 @@
 import base64
 import json
+import math
 import nacl.hash
 import nacl.secret
+import random
 
 from Crypto.PublicKey import ECC
-from math import prod
-from random import randint
 from typing import Dict, List
 
 class Point():
@@ -23,9 +23,6 @@ class Point():
     @property
     def curve(self):
         return self._point.curve
-
-    def point_at_infinity(self):
-        return Point(self._point.point_at_infinity())
 
     def __add__(self, point):
         return Point(self._point + point._point)
@@ -65,6 +62,10 @@ class Curve():
     def generator(self):
         return Point(self._curve.G)
 
+    @property
+    def identity(self):
+        return Point(self._curve.G.point_at_infinity())
+
 class EncryptedValue():
     def __init__(self, public_key: Point, ciphertext: bytes):
         self.public_key = public_key
@@ -91,11 +92,11 @@ class EncryptedValue():
 
 class Polynomial():
     @staticmethod
-    def Shamir(secret: int, threshold: int, order: int):
+    def shamir(secret: int, threshold: int, order: int):
         S = secret
         t = threshold
         q = order
-        return Polynomial([S] + [randint(1, q) for _ in range(t - 1)], q)
+        return Polynomial([S] + [random.randint(1, q) for _ in range(t - 1)], q)
 
     def __init__(self, coefficients: List[int], order: int):
         self._coefficients = coefficients
@@ -109,21 +110,22 @@ class Polynomial():
 
 def interpolate_int(shares: Dict[int, int], order: int):
     q = order
-    ℓ = lambda xᵢ : prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
+    ℓ = lambda xᵢ : math.prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
 
     return sum(yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()) % q
 
-def interpolate_ecc(shares: Dict[int, Point], order: int, start: Point):
+def interpolate(shares: Dict[int, Point], order: int, identity: Point):
     q = order
-    ℓ = lambda xᵢ : prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
+    I = identity
+    ℓ = lambda xᵢ : math.prod(xⱼ * pow(xⱼ - xᵢ, -1, q) for xⱼ in shares if xⱼ != xᵢ)
 
-    return sum((yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()), start)
+    return sum((yᵢ * ℓ(xᵢ) for xᵢ, yᵢ in shares.items()), I)
 
-def derive_key(S: Point):
+def symmetric_derive_key(S: Point):
     return nacl.hash.blake2b(S.to_bytes(), digest_size=nacl.secret.SecretBox.KEY_SIZE, encoder=nacl.encoding.RawEncoder)
 
-def encrypt(M: str, K: bytes):
+def symmetric_encrypt(M: str, K: bytes):
     return bytes(nacl.secret.SecretBox(K).encrypt(M.encode()))
 
-def decrypt(C: bytes, K: bytes):
+def symmetric_decrypt(C: bytes, K: bytes):
     return nacl.secret.SecretBox(K).decrypt(C).decode()
