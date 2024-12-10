@@ -4,12 +4,6 @@ from server import app
 
 client = TestClient(app)
 
-ignore = [
-    "root['node']['createdIndex']",
-    "root['node']['modifiedIndex']",
-    "root['prevNode']",
-]
-
 def test_status():
     response = client.get("/status")
     assert response.status_code == 200
@@ -29,4 +23,9 @@ def test_write_then_read():
             "value": "Hello world",
         },
     }
+    ignore = [
+        "root['node']['createdIndex']",
+        "root['node']['modifiedIndex']",
+        "root['prevNode']",
+    ]
     assert DeepDiff(response.json(), expected, exclude_paths=ignore) == {}

@@ -1,13 +1,12 @@
-import base64
 import httpx
 import random
 
 from crypto import *
 from fastapi import FastAPI, HTTPException, Request
 
-etcd0 = "http://127.0.0.1:56259"
-etcd1 = "http://127.0.0.1:56265"
-etcd2 = "http://127.0.0.1:56264"
+etcd0 = "http://127.0.0.1:53667"
+etcd1 = "http://127.0.0.1:53664"
+etcd2 = "http://127.0.0.1:53661"
 
 E = Curve('P-256')
 q = E.order
