@@ -83,7 +83,7 @@ generate_nginx_config() {
 }
 
 # Test scenarios
-declare -a tests=(3)
+declare -a tests=(5)
 
 # Main loop through each test scenario
 for n in "${tests[@]}"; do

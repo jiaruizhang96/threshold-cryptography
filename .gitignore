@@ -1,3 +1,4 @@
 build
 third-party
 server_output.log
+server/__pycache__/
