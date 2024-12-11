@@ -2,8 +2,8 @@ build
 third-party
 server_output.log
 server/__pycache__/
-vault/data/
-vault/log/
-vault/test/test/
-vault/test/vault_benchmark
+benchmark_vault/data/
+benchmark_vault/log/
+benchmark_vault/test/test/
+benchmark_vault/test/vault_benchmark
 
