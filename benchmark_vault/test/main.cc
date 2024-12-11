@@ -46,6 +46,7 @@ public:
 };
 
 TEST_CASE("Benchmark PUT and GET key-value pair", "[put_get_benchmark]") {
+    std::string vault_token = "";
     VaultClient client("127.0.0.1", 8200, vault_token);
     std::string key = "benchmark-test-key";
     std::string value = "123456789";
