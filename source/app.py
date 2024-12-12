@@ -1,7 +1,7 @@
 import argparse
 import asyncio
+import collections
 import httpx
-import itertools
 import logging
 import random
 import uvicorn
@@ -9,9 +9,17 @@ import uvicorn
 from crypto import *
 from fastapi import FastAPI, Request
 
+# Server for listening to our peers in the cluster (and ourselves).
 peer = FastAPI()
+
+# Server for listening to clients. Proxies etcd and transparently handles the
+# encryption/decryption of values sent/received by the client.
 proxy = FastAPI()
+
+# Using the peer server state as the state for our entire app.
 state = peer.state
+
+# Piggybacking off of Uvicorn's logger.
 logger = logging.getLogger("uvicorn.error")
 
 @peer.post("/status")
@@ -19,7 +27,7 @@ async def status():
     """
     Return a status message indicating readiness to service requests.
     """
-    return {"message": "Peer server is ready"}
+    return {"message": "Peer server is ready."}
 
 @peer.post("/keygen/{id}")
 async def keygen(id: int):
@@ -29,8 +37,9 @@ async def keygen(id: int):
     xⱼ = id
     k  = state.secret_key
     Q  = state.public_key
+    kⱼ = k[xⱼ]
 
-    return {"secretKeyShare": k[xⱼ], "publicKey": Q.to_dict()}
+    return {"secretKeyShare": kⱼ, "publicKey": Q.to_dict()}
 
 @peer.post("/decrypt")
 async def decrypt(request: Request):
@@ -50,7 +59,7 @@ async def status():
     """
     Return a status message indicating readiness to service requests.
     """
-    return {"message": "Proxy server is ready"}
+    return {"message": "Proxy server is ready."}
 
 @proxy.put("/keys/{key}")
 async def write(key: str, request: Request):
@@ -78,7 +87,7 @@ async def write(key: str, request: Request):
     # Replace the message with the public key and ciphertext.
     body["value"] = json.dumps({"publicKey": R.to_dict(), "ciphertext": base64.urlsafe_b64encode(C).decode("utf-8")})
 
-    # Proxy the write request to etcd.
+    # Carry on with the write request to etcd.
     async with httpx.AsyncClient() as client:
         response = await client.put(f"{state.etcd}/v2/keys/{key}", data=body)
 
@@ -98,22 +107,27 @@ async def read(key: str):
         R = Point.from_dict(value["publicKey"])
         C = base64.urlsafe_b64decode(value["ciphertext"].encode("utf-8"))
 
-        # Collect decryption shares from peers.
+        # We need to collect decryption shares from our peers.
+        t = state.threshold
         S = {}
-        t = 0
 
-        for xⱼ, peer in itertools.cycle(enumerate(state.cluster, 1)):
+        # Put the peers in a queue and visit them in a round-robin manner.
+        queue = collections.deque(enumerate(state.cluster, 1))
+
+        while len(S) != t:
+            xⱼ, host = queue.popleft()
             try:
-                response = await client.post(f"{peer}/decrypt", json=R.to_dict(), timeout=2)
+                # Timeout is more strict here because the client is waiting.
+                response = await client.post(f"{host}/decrypt", json=R.to_dict(), timeout=2)
             except:
-                logger.info(f"Peer {peer} is unresponsive, moving on.")
-                continue
-
-            S[xⱼ] = Point.from_dict(response.json())
-            t += 1
-
-            if t == state.threshold:
-                break
+                # Peer cannot be reached. Put them at the end of the queue and
+                # come back later if we still require shares.
+                queue.append((xⱼ, host))
+                logger.info(f"Peer {host} is unresponsive, moving on.")
+            else:
+                # Record the decryption share. Do not put the peer back in the
+                # queue, we don't want to contact them again.
+                S[xⱼ] = Point.from_dict(response.json())
 
     # Elliptic-curve cryptography parameters.
     E = state.curve
@@ -193,12 +207,12 @@ async def run():
     Q  = I
 
     async with httpx.AsyncClient() as client:
-        for peer in state.cluster:
+        for host in state.cluster:
             while True:
                 try:
-                    response = await client.post(f"{peer}/keygen/{state.id}")
+                    response = await client.post(f"{host}/keygen/{state.id}")
                 except:
-                    logger.info(f"Peer {peer} is unresponsive, trying again.")
+                    logger.info(f"Peer {host} is unresponsive, trying again.")
                     await asyncio.sleep(2)
                 else:
                     break
@@ -210,7 +224,7 @@ async def run():
     state.joint_secret_key_share = kᵢ
     state.joint_public_key = Q
 
-    # Start the encryption proxy server.
+    # Start the proxy server. Clients can now make requests.
     await run_proxy()
 
 if __name__ == "__main__":
