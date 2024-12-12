@@ -1,7 +1,9 @@
 import argparse
 import asyncio
+import base64
 import collections
 import httpx
+import json
 import logging
 import random
 import uvicorn
@@ -9,18 +11,18 @@ import uvicorn
 from crypto import *
 from fastapi import FastAPI, Request
 
+# Piggybacking off of Uvicorn's logger.
+logger = logging.getLogger("uvicorn.error")
+
 # Server for listening to our peers in the cluster (and ourselves).
 peer = FastAPI()
 
-# Server for listening to clients. Proxies etcd and transparently handles the
-# encryption/decryption of values sent/received by the client.
-proxy = FastAPI()
-
-# Using the peer server state as the state for our entire app.
+# Using the peer server state as the state for our entire application.
 state = peer.state
 
-# Piggybacking off of Uvicorn's logger.
-logger = logging.getLogger("uvicorn.error")
+# Server for listening to clients. Proxies etcd and transparently handles
+# encryption/decryption of values sent/received by the client.
+proxy = FastAPI()
 
 @peer.post("/status")
 async def status():
@@ -83,9 +85,10 @@ async def write(key: str, request: Request):
     S = d * Q
     K = symmetric_derive_key(S)
     C = symmetric_encrypt(M, K)
+    C = base64.urlsafe_b64encode(C).decode("utf-8")
 
     # Replace the message with the public key and ciphertext.
-    body["value"] = json.dumps({"publicKey": R.to_dict(), "ciphertext": base64.urlsafe_b64encode(C).decode("utf-8")})
+    body["value"] = json.dumps({"publicKey": R.to_dict(), "ciphertext": C})
 
     # Carry on with the write request to etcd.
     async with httpx.AsyncClient() as client:
@@ -118,12 +121,12 @@ async def read(key: str):
             xⱼ, host = queue.popleft()
             try:
                 # Timeout is more strict here because the client is waiting.
-                response = await client.post(f"{host}/decrypt", json=R.to_dict(), timeout=2)
+                response = await client.post(f"{host}/decrypt", json=R.to_dict(), timeout=1)
             except:
                 # Peer cannot be reached. Put them at the end of the queue and
                 # come back later if we still require shares.
                 queue.append((xⱼ, host))
-                logger.info(f"Peer {host} is unresponsive, moving on.")
+                logger.info(f"{host} is unresponsive, moving on.")
             else:
                 # Record the decryption share. Do not put the peer back in the
                 # queue, we don't want to contact them again.
@@ -144,25 +147,23 @@ async def read(key: str):
 
     return body
 
-async def run_peer():
+def save_state():
     """
-    Run the peer server API.
+    Save the application state to a file on the disk.
     """
-    config = uvicorn.Config(peer, host="0.0.0.0", port=2380, log_level="info")
-    server = uvicorn.Server(config)
-    await server.serve()
+    with open("/var/app/data/state.json", "w") as file:
+        json.dump(state, file)
 
-async def run_proxy():
+def load_state():
     """
-    Run the proxy server API.
+    Load the application state from a file on the disk.
     """
-    config = uvicorn.Config(proxy, host="0.0.0.0", port=2379, log_level="info")
-    server = uvicorn.Server(config)
-    await server.serve()
+    with open("/var/app/data/state.json", "r") as file:
+        state = json.load(file)
 
-async def run():
+def init_state():
     """
-    Run the entire program, with initialization.
+    Initialize a new application state.
     """
     parser = argparse.ArgumentParser()
 
@@ -199,8 +200,45 @@ async def run():
     state.secret_key = k
     state.public_key = Q
 
-    # Start the peer server.
+    # Persist application state on the disk.
+    # save_state()
+
+def init():
+    """
+    Initialize the application by loading its state from a file, if it exists,
+    or else creating a new state.
+    """
+    # try:
+    #     load_state()
+    # except FileNotFoundError:
+    #     init_state()
+    init_state()
+
+async def run_peer():
+    """
+    Run the peer server API.
+    """
+    config = uvicorn.Config(peer, host="0.0.0.0", port=2380, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+async def run_proxy():
+    """
+    Run the proxy server API.
+    """
+    config = uvicorn.Config(proxy, host="0.0.0.0", port=2379, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+async def run():
+    """
+    Run the entire application.
+    """
     asyncio.create_task(run_peer())
+
+    # Elliptic-curve cryptography parameters.
+    E = state.curve
+    I = E.identity
 
     # Perform the distributed key generation algorithm.
     kᵢ = 0
@@ -212,8 +250,8 @@ async def run():
                 try:
                     response = await client.post(f"{host}/keygen/{state.id}")
                 except:
-                    logger.info(f"Peer {host} is unresponsive, trying again.")
-                    await asyncio.sleep(2)
+                    logger.info(f"{host} is unresponsive, trying again.")
+                    await asyncio.sleep(1)
                 else:
                     break
             body = response.json()
@@ -224,8 +262,9 @@ async def run():
     state.joint_secret_key_share = kᵢ
     state.joint_public_key = Q
 
-    # Start the proxy server. Clients can now make requests.
+    # Clients can now make requests.
     await run_proxy()
 
 if __name__ == "__main__":
+    init()
     asyncio.run(run())

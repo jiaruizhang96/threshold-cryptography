@@ -5,7 +5,7 @@ from deepdiff import DeepDiff
 def test_status():
     response = httpx.get("http://127.0.0.1:8080/status")
     assert response.status_code == 200
-    assert response.json() == {"message": "Proxy server is ready"}
+    assert response.json() == {"message": "Proxy server is ready."}
 
 def test_write_then_read():
     response = httpx.put("http://127.0.0.1:8080/keys/message", json={"value": "Hello world"})
