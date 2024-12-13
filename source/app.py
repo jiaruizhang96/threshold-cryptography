@@ -46,14 +46,6 @@ async def keygen(id: str):
         kⱼ = k[xⱼ]
 
         return {"secretKeyShare": kⱼ, "publicKey": Q.to_dict()}
-    '''
-    xⱼ = id
-    k  = state.secret_key
-    Q  = state.public_key
-    kⱼ = k[xⱼ]
-
-    return {"secretKeyShare": kⱼ, "publicKey": Q.to_dict()}
-    '''
 
 @peer.post("/decrypt")
 async def decrypt(request: Request):
@@ -116,13 +108,6 @@ async def write(key: str, request: Request):
 
     # Replace the message with the public key and ciphertext.
     body["value"] = json.dumps({"publicKey": R.to_dict(), "ciphertext": C})
-    '''
-    # Carry on with the write request to etcd.
-    async with httpx.AsyncClient(verify=ssl_context) as client:
-        response = await client.put(f"{state.etcd}/v2/keys/{key}", data=body)
-
-    return response.json()
-    '''
     try:
         async with httpx.AsyncClient(verify=ssl_context) as client:
             response = await client.put(f"{state.etcd}/v2/keys/{key}", data=body)
@@ -334,7 +319,7 @@ async def run():
     kᵢ = 0
     Q  = I
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=ssl_context) as client:
         for host in state.cluster:
             while True:
                 try:
