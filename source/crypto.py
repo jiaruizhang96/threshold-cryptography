@@ -66,29 +66,12 @@ class Curve():
     def identity(self):
         return Point(self._curve.G.point_at_infinity())
 
-class EncryptedValue():
-    def __init__(self, public_key: Point, ciphertext: bytes):
-        self.public_key = public_key
-        self.ciphertext = ciphertext
-
     def to_dict(self):
-        R = self.public_key
-        C = self.ciphertext
-        return {"publicKey": R.to_dict(), "ciphertext": base64.urlsafe_b64encode(C).decode("utf-8")}
-
-    def to_json(self):
-        return json.dumps(self.to_dict())
-
-    def to_bytes(self):
-        return self.to_json().encode("utf-8")
+        return {"curve": self._curve.canonical}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
-        return cls(Point.from_dict(data["publicKey"]), base64.urlsafe_b64decode(data["ciphertext"].encode("utf-8")))
-
-    @classmethod
-    def from_json(cls, data):
-        return cls.from_dict(json.loads(data))
+    def from_dict(cls, data):
+        return cls(data["curve"])
 
 class Polynomial():
     @staticmethod

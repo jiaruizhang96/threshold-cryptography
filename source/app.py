@@ -10,6 +10,7 @@ import uvicorn
 
 from crypto import *
 from fastapi import FastAPI, Request
+from starlette.datastructures import State
 
 # Piggybacking off of Uvicorn's logger.
 logger = logging.getLogger("uvicorn.error")
@@ -32,7 +33,7 @@ async def status():
     return {"message": "Peer server is ready."}
 
 @peer.post("/keygen/{id}")
-async def keygen(id: int):
+async def keygen(id: str):
     """
     Return a share of the server's secret key and the server's public key.
     """
@@ -147,19 +148,56 @@ async def read(key: str):
 
     return body
 
+class StateEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder for saving application state to disk.
+    """
+    def default(self, obj):
+        if isinstance(obj, State):
+            return {"__type__": "State", "value": obj._state}
+
+        if isinstance(obj, Point):
+            return {"__type__": "Point", "value": obj.to_dict()}
+
+        if isinstance(obj, Curve):
+            return {"__type__": "Curve", "value": obj.to_dict()}
+
+        return super().default(obj)
+
+class StateDecoder(json.JSONDecoder):
+    """
+    Custom JSON decoder for loading application state from disk.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, data):
+        if data.get("__type__") == "State":
+            return State(data["value"])
+
+        if data.get("__type__") == "Point":
+            return Point.from_dict(data["value"])
+
+        if data.get("__type__") == "Curve":
+            return Curve.from_dict(data["value"])
+
+        return data
+
 def save_state():
     """
     Save the application state to a file on the disk.
     """
     with open("/var/app/data/state.json", "w") as file:
-        json.dump(state, file)
+        json.dump(state, file, cls=StateEncoder)
 
 def load_state():
     """
     Load the application state from a file on the disk.
     """
+    global state
+
     with open("/var/app/data/state.json", "r") as file:
-        state = json.load(file)
+        state = json.load(file, cls=StateDecoder)
 
 def init_state():
     """
@@ -167,7 +205,7 @@ def init_state():
     """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--id", type=int)
+    parser.add_argument("--id", type=str)
     parser.add_argument("--etcd", type=str)
     parser.add_argument("--cluster", type=str)
     parser.add_argument("--threshold", type=int)
@@ -188,31 +226,31 @@ def init_state():
     E = Curve("NIST P-256")
     q = E.order
     G = E.generator
-    I = E.identity
 
     # Generate individual secret key shares and public key.
     k = random.randint(1, q)
     Q = k * G
     f = Polynomial.shamir(k, t, q)
-    k = {xⱼ: f(xⱼ) for xⱼ in range(1, n + 1)}
+
+    # TODO: Fix issue caused by JSON converting integer keys to strings.
+    k = {str(xⱼ): f(xⱼ) for xⱼ in range(1, n + 1)}
 
     state.curve = E
     state.secret_key = k
     state.public_key = Q
 
     # Persist application state on the disk.
-    # save_state()
+    save_state()
 
 def init():
     """
     Initialize the application by loading its state from a file, if it exists,
     or else creating a new state.
     """
-    # try:
-    #     load_state()
-    # except FileNotFoundError:
-    #     init_state()
-    init_state()
+    try:
+        load_state()
+    except FileNotFoundError:
+        init_state()
 
 async def run_peer():
     """
