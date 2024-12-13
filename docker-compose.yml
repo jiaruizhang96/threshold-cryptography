@@ -1,5 +1,19 @@
 version: '3.8'
 services:
+  init-certs:
+    image: debian:bullseye-slim
+    container_name: init-certs
+    command: sh /certs.sh
+    volumes:
+      - ./certs.sh:/certs.sh
+      - peer1-certs:/peer1-certs
+      - peer2-certs:/peer2-certs
+      - peer3-certs:/peer3-certs
+    entrypoint: >
+      sh -c "apt-get update && apt-get install -y openssl &&
+            chmod +x ./certs.sh &&
+            sh ./certs.sh"
+
   etcd1:
     image: quay.io/coreos/etcd:v3.5.16
     container_name: etcd1
@@ -64,6 +78,7 @@ services:
       - --threshold=2
     volumes:
       - peer1:/var/app/data
+      - peer1-certs:/etc/certs
     depends_on:
       - etcd1
   peer2:
@@ -76,6 +91,7 @@ services:
       - --threshold=2
     volumes:
       - peer2:/var/app/data
+      - peer2-certs:/etc/certs
     depends_on:
       - etcd2
   peer3:
@@ -88,6 +104,7 @@ services:
       - --threshold=2
     volumes:
       - peer3:/var/app/data
+      - peer3-certs:/etc/certs
     depends_on:
       - etcd3
   nginx:
@@ -101,7 +118,6 @@ services:
       - peer1
       - peer2
       - peer3
-
 volumes:
   etcd1:
   etcd2:
@@ -109,3 +125,7 @@ volumes:
   peer1:
   peer2:
   peer3:
+  peer1-certs:
+  peer2-certs:
+  peer3-certs:
+  

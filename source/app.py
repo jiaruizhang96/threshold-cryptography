@@ -1,3 +1,4 @@
+import ssl
 import argparse
 import asyncio
 import base64
@@ -13,6 +14,7 @@ from fastapi import FastAPI, Request
 from starlette.datastructures import State
 
 # Piggybacking off of Uvicorn's logger.
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn.error")
 
 # Server for listening to our peers in the cluster (and ourselves).
@@ -37,18 +39,27 @@ async def keygen(id: str):
     """
     Return a share of the server's secret key and the server's public key.
     """
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        xⱼ = id
+        k = state.secret_key
+        Q = state.public_key
+        kⱼ = k[xⱼ]
+
+        return {"secretKeyShare": kⱼ, "publicKey": Q.to_dict()}
+    '''
     xⱼ = id
     k  = state.secret_key
     Q  = state.public_key
     kⱼ = k[xⱼ]
 
     return {"secretKeyShare": kⱼ, "publicKey": Q.to_dict()}
+    '''
 
 @peer.post("/decrypt")
 async def decrypt(request: Request):
     """
     Return the server's share of the decryption of a message.
-    """
+    
     body = await request.json()
 
     kᵢ = state.joint_secret_key_share
@@ -56,6 +67,21 @@ async def decrypt(request: Request):
     Sᵢ = kᵢ * R
 
     return Sᵢ.to_dict()
+    """
+    try:
+        body = await request.json()
+        logger.info("Received decryption request.")
+
+        kᵢ = state.joint_secret_key_share
+        R = Point.from_dict(body)
+        Sᵢ = kᵢ * R
+
+        logger.info("Successfully processed decryption request.")
+        return Sᵢ.to_dict()
+    except Exception as e:
+        logger.error(f"Error during decryption: {e}")
+        raise
+
 
 @proxy.get("/status")
 async def status():
@@ -90,63 +116,89 @@ async def write(key: str, request: Request):
 
     # Replace the message with the public key and ciphertext.
     body["value"] = json.dumps({"publicKey": R.to_dict(), "ciphertext": C})
-
+    '''
     # Carry on with the write request to etcd.
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=ssl_context) as client:
         response = await client.put(f"{state.etcd}/v2/keys/{key}", data=body)
 
     return response.json()
-
+    '''
+    try:
+        async with httpx.AsyncClient(verify=ssl_context) as client:
+            response = await client.put(f"{state.etcd}/v2/keys/{key}", data=body)
+            response.raise_for_status()
+            logger.info(f"Successfully wrote key {key} to {state.etcd}")
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error occurred while writing key {key}: {e}")
+        raise
+    except httpx.RequestError as e:
+        logger.error(f"Request error occurred while writing key {key}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error while writing key {key}: {e}")
+        raise
+        
 @proxy.get("/keys/{key}")
 async def read(key: str):
     """
     Proxy GET requests to the upstream etcd API and perform decryption.
     """
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{state.etcd}/v2/keys/{key}")
-        body = response.json()
+    try:
+        async with httpx.AsyncClient(verify=ssl_context) as client:
+            response = await client.get(f"{state.etcd}/v2/keys/{key}")
+            body = response.json()
 
-        # Extract the public key and ciphertext from the etcd value.
-        value = json.loads(body["node"]["value"])
-        R = Point.from_dict(value["publicKey"])
-        C = base64.urlsafe_b64decode(value["ciphertext"].encode("utf-8"))
+            # Extract the public key and ciphertext from the etcd value.
+            value = json.loads(body["node"]["value"])
+            R = Point.from_dict(value["publicKey"])
+            C = base64.urlsafe_b64decode(value["ciphertext"].encode("utf-8"))
 
-        # We need to collect decryption shares from our peers.
-        t = state.threshold
-        S = {}
+            # We need to collect decryption shares from our peers.
+            t = state.threshold
+            S = {}
 
-        # Put the peers in a queue and visit them in a round-robin manner.
-        queue = collections.deque(enumerate(state.cluster, 1))
+            # Put the peers in a queue and visit them in a round-robin manner.
+            queue = collections.deque(enumerate(state.cluster, 1))
 
-        while len(S) != t:
-            xⱼ, host = queue.popleft()
-            try:
-                # Timeout is more strict here because the client is waiting.
-                response = await client.post(f"{host}/decrypt", json=R.to_dict(), timeout=1)
-            except:
-                # Peer cannot be reached. Put them at the end of the queue and
-                # come back later if we still require shares.
-                queue.append((xⱼ, host))
-                logger.info(f"{host} is unresponsive, moving on.")
-            else:
-                # Record the decryption share. Do not put the peer back in the
-                # queue, we don't want to contact them again.
-                S[xⱼ] = Point.from_dict(response.json())
+            while len(S) != t:
+                xⱼ, host = queue.popleft()
+                try:
+                    # Timeout is more strict here because the client is waiting.
+                    response = await client.post(f"{host}/decrypt", json=R.to_dict(), timeout=1)
+                except:
+                    # Peer cannot be reached. Put them at the end of the queue and
+                    # come back later if we still require shares.
+                    queue.append((xⱼ, host))
+                    logger.info(f"{host} is unresponsive, moving on.")
+                else:
+                    # Record the decryption share. Do not put the peer back in the
+                    # queue, we don't want to contact them again.
+                    S[xⱼ] = Point.from_dict(response.json())
 
-    # Elliptic-curve cryptography parameters.
-    E = state.curve
-    q = E.order
-    I = E.identity
+        # Elliptic-curve cryptography parameters.
+        E = state.curve
+        q = E.order
+        I = E.identity
 
-    # Interpolate the decryption shares and reveal the message.
-    S = interpolate(S, q, I)
-    K = symmetric_derive_key(S)
-    M = symmetric_decrypt(C, K)
+        # Interpolate the decryption shares and reveal the message.
+        S = interpolate(S, q, I)
+        K = symmetric_derive_key(S)
+        M = symmetric_decrypt(C, K)
 
-    # Replace the etcd value with the message.
-    body["node"]["value"] = M
+        # Replace the etcd value with the message.
+        body["node"]["value"] = M
 
-    return body
+        return body
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error occurred while reading key {key}: {e}")
+        raise
+    except httpx.RequestError as e:
+        logger.error(f"Request error occurred while reading key {key}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error while reading key {key}: {e}")
+        raise
 
 class StateEncoder(json.JSONEncoder):
     """
@@ -305,4 +357,20 @@ async def run():
 
 if __name__ == "__main__":
     init()
+
+    try:
+        logger.info("Initializing SSL context...")
+        
+        # Use state.id to dynamically select the peer-specific certificate and key
+        certfile = f"/etc/certs/peer{state.id}.crt"
+        keyfile = f"/etc/certs/peer{state.id}.key"
+        
+        ssl_context = ssl.create_default_context(cafile="/etc/certs/ca.crt")
+        ssl_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+        ssl_context.verify_mode = ssl.CERT_REQUIRED  # Require certificate verification
+        logger.info(f"SSL context successfully configured for peer {state.id}.")
+    except Exception as e:
+        logger.error(f"Error configuring SSL context for peer {state.id}: {e}")
+        raise
+        
     asyncio.run(run())
