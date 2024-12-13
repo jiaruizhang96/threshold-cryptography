@@ -1,115 +1,111 @@
 version: '3.8'
 services:
-  etcd0:
-    image: quay.io/coreos/etcd:v3.5.16
-    container_name: etcd0
-    ports:
-      - "2379:2379"
-      - "2380:2380"
-    command: >
-      etcd
-      --name etcd0
-      --data-dir /etcd-data
-      --listen-client-urls http://0.0.0.0:2379
-      --advertise-client-urls http://etcd0:2379
-      --listen-peer-urls http://0.0.0.0:2380
-      --initial-advertise-peer-urls http://etcd0:2380
-      --initial-cluster etcd0=http://etcd0:2380,etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd4=http://etcd4:2380
-      --initial-cluster-state new
-      --initial-cluster-token mys3cr3ttok3n
-      --enable-v2
-    volumes:
-      - etcd0:/etcd_data
   etcd1:
     image: quay.io/coreos/etcd:v3.5.16
     container_name: etcd1
-    ports:
-      - "3379:2379"
-      - "3380:2380"
-    command: >
-      etcd
-      --name etcd1
-      --data-dir /etcd-data
-      --listen-client-urls http://0.0.0.0:2379
-      --advertise-client-urls http://etcd1:2379
-      --listen-peer-urls http://0.0.0.0:2380
-      --initial-advertise-peer-urls http://etcd1:2380
-      --initial-cluster etcd0=http://etcd0:2380,etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd4=http://etcd4:2380
-      --initial-cluster-state new
-      --initial-cluster-token mys3cr3ttok3n
-      --enable-v2
+    command:
+      - etcd
+      - --enable-v2
+      - --name=etcd1
+      - --data-dir=/var/etcd/data
+      - --log-level=warn
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd1:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd1:2380
+      - --initial-cluster=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - --initial-cluster-state=new
+      - --initial-cluster-token=etcd-cluster
     volumes:
-      - etcd1:/etcd_data
+      - etcd1:/var/etcd/data
   etcd2:
     image: quay.io/coreos/etcd:v3.5.16
     container_name: etcd2
-    ports:
-      - "4379:2379"
-      - "4380:2380"
-    command: >
-      etcd
-      --name etcd2
-      --data-dir /etcd-data
-      --listen-client-urls http://0.0.0.0:2379
-      --advertise-client-urls http://etcd2:2379
-      --listen-peer-urls http://0.0.0.0:2380
-      --initial-advertise-peer-urls http://etcd2:2380
-      --initial-cluster etcd0=http://etcd0:2380,etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd4=http://etcd4:2380
-      --initial-cluster-state new
-      --initial-cluster-token mys3cr3ttok3n
-      --enable-v2
+    command:
+      - etcd
+      - --enable-v2
+      - --name=etcd2
+      - --data-dir=/var/etcd/data
+      - --log-level=warn
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd2:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd2:2380
+      - --initial-cluster=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - --initial-cluster-state=new
+      - --initial-cluster-token=etcd-cluster
     volumes:
-      - etcd2:/etcd_data
+      - etcd2:/var/etcd/data
   etcd3:
     image: quay.io/coreos/etcd:v3.5.16
     container_name: etcd3
-    ports:
-      - "5379:2379"
-      - "5380:2380"
-    command: >
-      etcd
-      --name etcd3
-      --data-dir /etcd-data
-      --listen-client-urls http://0.0.0.0:2379
-      --advertise-client-urls http://etcd3:2379
-      --listen-peer-urls http://0.0.0.0:2380
-      --initial-advertise-peer-urls http://etcd3:2380
-      --initial-cluster etcd0=http://etcd0:2380,etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd4=http://etcd4:2380
-      --initial-cluster-state new
-      --initial-cluster-token mys3cr3ttok3n
-      --enable-v2
+    command:
+      - etcd
+      - --enable-v2
+      - --name=etcd3
+      - --data-dir=/var/etcd/data
+      - --log-level=warn
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd3:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd3:2380
+      - --initial-cluster=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - --initial-cluster-state=new
+      - --initial-cluster-token=etcd-cluster
     volumes:
-      - etcd3:/etcd_data
-  etcd4:
-    image: quay.io/coreos/etcd:v3.5.16
-    container_name: etcd4
-    ports:
-      - "6379:2379"
-      - "6380:2380"
-    command: >
-      etcd
-      --name etcd4
-      --data-dir /etcd-data
-      --listen-client-urls http://0.0.0.0:2379
-      --advertise-client-urls http://etcd4:2379
-      --listen-peer-urls http://0.0.0.0:2380
-      --initial-advertise-peer-urls http://etcd4:2380
-      --initial-cluster etcd0=http://etcd0:2380,etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380,etcd4=http://etcd4:2380
-      --initial-cluster-state new
-      --initial-cluster-token mys3cr3ttok3n
-      --enable-v2
+      - etcd3:/var/etcd/data
+  peer1:
+    build: .
+    container_name: peer1
+    command:
+      - --id=1
+      - --etcd=http://etcd1:2379
+      - --cluster=http://peer1:2380,http://peer2:2380,http://peer3:2380
+      - --threshold=2
     volumes:
-      - etcd4:/etcd_data
+      - peer1:/var/app/data
+    depends_on:
+      - etcd1
+  peer2:
+    build: .
+    container_name: peer2
+    command:
+      - --id=2
+      - --etcd=http://etcd2:2379
+      - --cluster=http://peer1:2380,http://peer2:2380,http://peer3:2380
+      - --threshold=2
+    volumes:
+      - peer2:/var/app/data
+    depends_on:
+      - etcd2
+  peer3:
+    build: .
+    container_name: peer3
+    command:
+      - --id=3
+      - --etcd=http://etcd3:2379
+      - --cluster=http://peer1:2380,http://peer2:2380,http://peer3:2380
+      - --threshold=2
+    volumes:
+      - peer3:/var/app/data
+    depends_on:
+      - etcd3
   nginx:
     image: nginx:latest
     container_name: nginx
     ports:
-      - "8080:8080"
+      - "8080:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - peer1
+      - peer2
+      - peer3
+
 volumes:
-  etcd0:
   etcd1:
   etcd2:
   etcd3:
-  etcd4:
+  peer1:
+  peer2:
+  peer3:

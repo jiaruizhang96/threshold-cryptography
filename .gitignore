@@ -1,5 +1,6 @@
-build
-third-party
+.pytest_cache
+.venv
+__pycache__
 server_output.log
 server/__pycache__/
 benchmark_vault/data/
