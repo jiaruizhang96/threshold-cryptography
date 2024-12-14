@@ -10,7 +10,7 @@ openssl genrsa -out $CERTS_DIR/ca.key 4096
 openssl req -x509 -new -nodes -key $CERTS_DIR/ca.key -sha256 -days 3650 -out $CERTS_DIR/ca.crt -subj "/CN=Cluster CA"
 
 # Generate certificates for each peer
-for peer in peer1 peer2 peer3 peer4 peer5; do
+for peer in peer1 peer2 peer3; do
     echo "Generating certificate for $peer..."
     openssl genrsa -out $CERTS_DIR/$peer.key 2048
     openssl req -new -key $CERTS_DIR/$peer.key -out $CERTS_DIR/$peer.csr -subj "/CN=$peer"
@@ -19,7 +19,7 @@ done
 
 # Organize certificates into separate directories
 echo "Organizing certificates..."
-mkdir -p /peer1-certs /peer2-certs /peer3-certs /peer4-certs /peer5-certs
+mkdir -p /peer1-certs /peer2-certs /peer3-certs
 
 cp $CERTS_DIR/peer1.crt /peer1-certs/peer1.crt
 cp $CERTS_DIR/peer1.key /peer1-certs/peer1.key
@@ -33,14 +33,6 @@ cp $CERTS_DIR/peer3.crt /peer3-certs/peer3.crt
 cp $CERTS_DIR/peer3.key /peer3-certs/peer3.key
 cp $CERTS_DIR/ca.crt /peer3-certs/ca.crt
 
-cp $CERTS_DIR/peer4.crt /peer4-certs/peer4.crt
-cp $CERTS_DIR/peer4.key /peer4-certs/peer4.key
-cp $CERTS_DIR/ca.crt /peer4-certs/ca.crt
-
-cp $CERTS_DIR/peer5.crt /peer5-certs/peer5.crt
-cp $CERTS_DIR/peer5.key /peer5-certs/peer5.key
-cp $CERTS_DIR/ca.crt /peer5-certs/ca.crt
-
 echo "Certificate generation and organization complete."
 
 echo "Contents of /peer1-certs:"
@@ -51,9 +43,3 @@ ls -l /peer2-certs
 
 echo "Contents of /peer3-certs:"
 ls -l /peer3-certs
-
-echo "Contents of /peer4-certs:"
-ls -l /peer4-certs
-
-echo "Contents of /peer5-certs:"
-ls -l /peer5-certs
