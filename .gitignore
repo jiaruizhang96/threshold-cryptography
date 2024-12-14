@@ -3,8 +3,7 @@
 __pycache__
 server_output.log
 server/__pycache__/
-benchmark_vault/data/
-benchmark_vault/log/
-benchmark_vault/test/test/
-benchmark_vault/test/vault_benchmark
-
+/test/vault/data
+/test/vault/vault_init.txt
+/test/vault/log/nohup.log
+/test/vault/log/vault.log
