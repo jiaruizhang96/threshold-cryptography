@@ -1,7 +1,8 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
+#import matplotlib.pyplot as plt
+#import seaborn as sns
 import pandas as pd
 import numpy as np
+import os 
 
 # Data for the bar plots
 systems = ['Our Solution', 'Vault', 'etcd']
@@ -47,73 +48,58 @@ def create_plot(data, title, filename):
     plt.savefig(f'{filename}.png')
     plt.show()
 
+
 # Create and save plots
-create_plot(put_data, 'Benchmark Results for PUT Operations', 'put_benchmark_bar')
-create_plot(get_data, 'Benchmark Results for GET Operations', 'get_benchmark_bar')
-'''
+#create_plot(put_data, 'Benchmark Results for PUT Operations', 'put_benchmark_bar')
+#create_plot(get_data, 'Benchmark Results for GET Operations', 'get_benchmark_bar')
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
 
-# Sample data
-data = {
-    'model1': {
-        'system1': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.90], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.80]},
-        'system2': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.88], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.78]},
-        'system3': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.89], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.79]},
-        'system4': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.87], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.77]}
-    },
-    'model2': {
-        'system1': {'ner': [0.82, 0.81, 0.80, 0.79, 0.78, 0.80], 'cer': [0.72, 0.71, 0.70, 0.69, 0.68, 0.70]},
-        'system2': {'ner': [0.82, 0.81, 0.80, 0.79, 0.78, 0.78], 'cer': [0.72, 0.71, 0.70, 0.69, 0.68, 0.68]},
-        'system3': {'ner': [0.82, 0.81, 0.80, 0.79, 0.78, 0.79], 'cer': [0.72, 0.71, 0.70, 0.69, 0.68, 0.69]},
-        'system4': {'ner': [0.82, 0.81, 0.80, 0.79, 0.78, 0.77], 'cer': [0.72, 0.71, 0.70, 0.69, 0.68, 0.67]}
-    },
-    'model3': {
-        'system1': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.89], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.79]},
-        'system2': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.88], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.78]},
-        'system3': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.90], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.80]},
-        'system4': {'ner': [0.92, 0.91, 0.90, 0.89, 0.88, 0.87], 'cer': [0.82, 0.81, 0.80, 0.79, 0.78, 0.77]}
+def gen_avg_time(log_dir, n):
+    """
+    Compute the average execution time for secret split and restore from log files.
+    
+    Args:
+        log_dir (str): The directory where the log files are stored.
+        n (int): The number of servers to process.
+        
+    Returns:
+        dict: A dictionary containing average secret split and restore times.
+    """
+    put_times = []
+    get_times = []
+    
+    # Process PUT log files
+    for i in range(1, n + 1):
+        put_file = os.path.join(log_dir, f"put_{i}.txt")
+        if os.path.exists(put_file):
+            with open(put_file, "r") as file:
+                times = [float(line.strip())*1000 for line in file if line.strip()]
+                put_times.extend(times)
+    
+    # Process GET log files
+    for i in range(1, n + 1):
+        get_file = os.path.join(log_dir, f"get_{i}.txt")
+        if os.path.exists(get_file):
+            with open(get_file, "r") as file:
+                times = [float(line.strip())*1000 for line in file if line.strip()]
+                get_times.extend(times)
+    
+    # Compute averages
+    avg_put_time = sum(put_times) / len(put_times) if put_times else 0
+    avg_get_time = sum(get_times) / len(get_times) if get_times else 0
+    
+    # Return as a dictionary
+    result = {
+        "average_split_time": avg_put_time,
+        "average_restore_time": avg_get_time
     }
-}
+    
+    return result
 
-# Transforming data into DataFrame format
-def prepare_data(data, metric):
-    results = []
-    for model, systems in data.items():
-        for system, scores in systems.items():
-            results.append({
-                'Model': model,
-                'System': system,
-                'Value': scores[metric][-1]
-            })
-    return pd.DataFrame(results)
-
-# Prepare NER and CER data
-df_ner_avg = prepare_data(data, 'ner')
-df_cer_avg = prepare_data(data, 'cer')
-
-# Define custom gradient palettes
-gradient_palette = {
-    'system1': '#f0f9e8',
-    'system2': '#bae4bc',
-    'system3': '#7bccc4',
-    'system4': '#2b8cbe'
-}
-
-# Plotting NER averages with gradient hues
-plt.figure(figsize=(12, 6))
-sns.barplot(x='Model', y='Value', hue='System', data=df_ner_avg, palette=gradient_palette)
-plt.title('NER Averages Across Models and Systems')
-plt.ylabel('NER Average')
-plt.show()
-
-# Plotting CER averages with gradient hues
-plt.figure(figsize=(12, 6))
-sns.barplot(x='Model', y='Value', hue='System', data=df_cer_avg, palette=gradient_palette)
-plt.title('CER Averages Across Models and Systems')
-plt.ylabel('CER Average')
-plt.show()
-
-'''
+# Example usage:
+log_directory = "../../logs/n=3"  # Replace with the path to your log directory
+num_servers = 3
+averages = gen_avg_time(log_directory, num_servers)
+print("Average Split Time (ms):", averages["average_split_time"])
+print("Average Restore Time (ms):", averages["average_restore_time"])
+    
