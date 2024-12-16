@@ -97,9 +97,68 @@ def gen_avg_time(log_dir, n):
     return result
 
 # Example usage:
-log_directory = "../../logs/n=3"  # Replace with the path to your log directory
-num_servers = 3
-averages = gen_avg_time(log_directory, num_servers)
-print("Average Split Time (ms):", averages["average_split_time"])
-print("Average Restore Time (ms):", averages["average_restore_time"])
-    
+#log_directory = "../../logs/n=3"  # Replace with the path to your log directory
+#num_servers = 3
+#averages = gen_avg_time(log_directory, num_servers)
+#print("Average Split Time (ms):", averages["average_split_time"])
+#print("Average Restore Time (ms):", averages["average_restore_time"])
+
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+
+# File paths
+etcd_file = '../../logs/vary/n=5/etcd.json'
+vault_file = '../../logs/vary/n=5/vault.json'
+solution_file = '../../logs/vary/n=5/our solution.json'
+
+# Load data from files
+with open(etcd_file, 'r') as f:
+    etcd_data = json.load(f)
+with open(vault_file, 'r') as f:
+    vault_data = json.load(f)
+with open(solution_file, 'r') as f:
+    solution_data = json.load(f)
+
+# Extract workloads
+
+# Workload definitions
+workloads = {
+    "A": {"read": 0, "write": 100},
+    "B": {"read": 10, "write": 90},
+    "C": {"read": 20, "write": 80},
+    "D": {"read": 30, "write": 70},
+    "E": {"read": 40, "write": 60},
+    "F": {"read": 50, "write": 50},
+}
+
+# Function to compute read-to-write proportion
+def compute_proportion(workload):
+    read = workload["read"]
+    write = workload["write"]
+    if write == 0:  # Handle purely read workload
+        return 1.0
+    return read / write
+
+# Compute proportions and extract latencies
+proportions = [compute_proportion(workloads[w]) for w in workloads]
+etcd_latencies = [etcd_data[w] for w in workloads]
+vault_latencies = [vault_data[w] for w in workloads]
+solution_latencies = [solution_data[w] for w in workloads]
+
+# Plot Proportion vs Latency
+plt.figure(figsize=(8, 6))
+
+plt.plot(proportions, etcd_latencies, label="etcd", linewidth=2)
+plt.plot(proportions, vault_latencies, label="Vault", linewidth=2)
+plt.plot(proportions, solution_latencies, label="Our Solution", linewidth=2)
+
+# Customize plot
+plt.xticks(ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0], labels=["0", "0.2", "0.4", "0.6", "0.8", "1.0"])
+
+plt.xlabel("Read-to-Write Ratio", fontsize=16)
+plt.ylabel("Latency (ms)", fontsize=16)
+plt.title("Read-to-Write Ratio vs Latency with n=5", fontsize=16)
+
+plt.legend(fontsize=16)
+plt.savefig("../../logs/vary/n=3/results_n=5.jpg")
